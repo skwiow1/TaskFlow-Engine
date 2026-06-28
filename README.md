@@ -152,4 +152,14 @@ On first run, a `tasks.db` file is created in the working directory to persist y
 MIT — feel free to fork, learn from, or build on top of this project.
 ---
 
-## 🏗 Architecture**
+## 🏗 Architecture 
+com.taskflow
+├── model/          → Taskable interface, AbstractTask, and its 3 subtypes, Priority enum
+├── structures/      → Node, SinglyLinkedList, LinkedQueue, LinkedCollection contract
+├── persistence/     → TaskRepository (save/load to disk)
+├── service/          → TaskService, UrgentQueueService (business logic, search, filtering)
+└── app/              → TaskFlowApplication (entry point), ConsoleView, TaskInputReader
+The split keeps each layer testable in isolation:
+* **`structures`** knows nothing about tasks — it's a generic, reusable library.
+* **`service`** knows nothing about the console — it only depends on `structures` and `model`.
+* **`app`** is the only layer that talks to `System.in` / `System.out`.
