@@ -1,0 +1,118 @@
+package com.taskflow.app;
+
+import com.taskflow.model.AbstractTask;
+import com.taskflow.structures.LinkedQueue;
+import com.taskflow.structures.SinglyLinkedList;
+
+import java.util.List;
+
+/**
+ * Centralizes all console output formatting so the menu-driven flow in
+ * TaskFlowApplication stays free of print-statement noise.
+ */
+public class ConsoleView {
+
+    private static final String DIVIDER = "═".repeat(45);
+
+    public void printBanner() {
+        System.out.println("╔" + "═".repeat(43) + "╗");
+        System.out.println("║          TASKFLOW ENGINE  v1.0           ║");
+        System.out.println("╚" + "═".repeat(43) + "╝");
+    }
+
+    public void printMenu() {
+        System.out.println();
+        System.out.println("──── MAIN MENU ─────────────────────────");
+        System.out.println(" Task List");
+        System.out.println("  1.  Add task");
+        System.out.println("  2.  View all tasks");
+        System.out.println("  3.  Search tasks (partial match)");
+        System.out.println("  4.  Find task by exact title");
+        System.out.println("  5.  Count tasks by priority");
+        System.out.println("  6.  Upcoming reminders (next 3 days)");
+        System.out.println("  7.  High-priority reminders");
+        System.out.println("  8.  Overdue tasks");
+        System.out.println("  9.  Remove first task");
+        System.out.println("  10. Remove last task");
+        System.out.println("  11. Count completed tasks");
+        System.out.println(" Urgent Queue");
+        System.out.println("  12. Escalate task to urgent queue");
+        System.out.println("  13. View urgent queue");
+        System.out.println("  14. Find urgent task by title");
+        System.out.println("  15. View high-priority urgent tasks");
+        System.out.println("  16. Count urgent tasks");
+        System.out.println(" Data");
+        System.out.println("  17. Save now");
+        System.out.println("  0.  Exit");
+        System.out.println("──────────────────────────────────────────");
+        System.out.print("Enter your choice: ");
+    }
+
+    public void printHeader(String title) {
+        System.out.println(DIVIDER);
+        System.out.println(centered(title));
+        System.out.println(DIVIDER);
+    }
+
+    public void printFooter() {
+        System.out.println(DIVIDER);
+    }
+
+    public void printTaskList(SinglyLinkedList<AbstractTask> tasks) {
+        if (tasks.isEmpty()) {
+            System.out.println("No tasks to display.");
+            return;
+        }
+        for (AbstractTask task : tasks) {
+            System.out.println(task.toDisplayString());
+        }
+        System.out.println("Total: " + tasks.size() + " task(s)");
+    }
+
+    public void printTaskCollection(List<AbstractTask> tasks, String emptyMessage) {
+        if (tasks.isEmpty()) {
+            System.out.println(emptyMessage);
+            return;
+        }
+        for (AbstractTask task : tasks) {
+            System.out.println(task.toDisplayString());
+        }
+        System.out.println("Total: " + tasks.size() + " task(s)");
+    }
+
+    public void printQueue(LinkedQueue<AbstractTask> queue, String emptyMessage) {
+        if (queue.isEmpty()) {
+            System.out.println(emptyMessage);
+            return;
+        }
+        int position = 1;
+        for (AbstractTask task : queue) {
+            System.out.println("Position " + position + ":");
+            System.out.println(task.toDisplayString());
+            position++;
+        }
+        System.out.println("Total: " + queue.size() + " task(s)");
+    }
+
+    public void printSingleTask(AbstractTask task, String notFoundMessage) {
+        if (task == null) {
+            System.out.println(notFoundMessage);
+        } else {
+            System.out.println(task.toDisplayString());
+        }
+    }
+
+    public void printInfo(String message) {
+        System.out.println(message);
+    }
+
+    public void printError(String message) {
+        System.out.println("⚠ " + message);
+    }
+
+    private String centered(String text) {
+        int width = DIVIDER.length();
+        int padding = Math.max(0, (width - text.length()) / 2);
+        return " ".repeat(padding) + text;
+    }
+}

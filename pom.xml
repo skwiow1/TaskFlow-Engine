@@ -1,0 +1,200 @@
+package com.taskflow.app;
+
+import com.taskflow.model.AbstractTask;
+import com.taskflow.model.Priority;
+import com.taskflow.persistence.TaskRepository;
+import com.taskflow.service.TaskService;
+import com.taskflow.service.UrgentQueueService;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Scanner;
+
+/**
+ * Entry point and menu loop. Responsible only for wiring services
+ * together and dispatching menu choices — all actual logic lives in
+ * the service layer or the data structures themselves.
+ */
+public class TaskFlowApplication {
+
+    private static final Path STORAGE_PATH = Path.of("tasks.db");
+
+    private final Scanner scanner = new Scanner(System.in);
+    private final ConsoleView view = new ConsoleView();
+    private final TaskInputReader input = new TaskInputReader(scanner);
+    private final TaskRepository repository = new TaskRepository(STORAGE_PATH);
+    private final TaskService taskService = new TaskService(repository);
+    private final UrgentQueueService urgentQueueService = new UrgentQueueService();
+
+    public static void main(String[] args) {
+        new TaskFlowApplication().run();
+    }
+
+    public void run() {
+        view.printBanner();
+        view.printInfo("Loaded " + taskService.getTasks().size() + " task(s) from disk.");
+
+        int choice;
+        do {
+            view.printMenu();
+            choice = readMenuChoice();
+            dispatch(choice);
+        } while (choice != 0);
+
+        taskService.persist();
+        view.printInfo("Tasks saved. Goodbye!");
+        scanner.close();
+    }
+
+    private int readMenuChoice() {
+        String raw = scanner.nextLine().trim();
+        try {
+            return Integer.parseInt(raw);
+        } catch (NumberFormatException ex) {
+            return -1;
+        }
+    }
+
+    private void dispatch(int choice) {
+        System.out.println();
+        switch (choice) {
+            case 1 -> addTask();
+            case 2 -> viewAllTasks();
+            case 3 -> searchPartial();
+            case 4 -> findExactTask();
+            case 5 -> countByPriority();
+            case 6 -> upcomingReminders();
+            case 7 -> highPriorityReminders();
+            case 8 -> overdueTasks();
+            case 9 -> removeFirstTask();
+            case 10 -> removeLastTask();
+            case 11 -> countCompleted();
+            case 12 -> escalateToUrgentQueue();
+            case 13 -> viewUrgentQueue();
+            case 14 -> findUrgentTask();
+            case 15 -> viewHighPriorityUrgentTasks();
+            case 16 -> countUrgentTasks();
+            case 17 -> saveNow();
+            case 0 -> view.printInfo("Exiting...");
+            default -> view.printError("Invalid option, please choose a number from the menu.");
+        }
+    }
+
+    // ---- Task list operations ----
+
+    private void addTask() {
+        AbstractTask task = input.readNewTask();
+        taskService.addTask(task);
+        view.printInfo("Task added with ID #" + task.getId());
+    }
+
+    private void viewAllTasks() {
+        view.printHeader("ALL TASKS");
+        view.printTaskList(taskService.getTasks());
+        view.printFooter();
+    }
+
+    private void searchPartial() {
+        String query = input.readLine("Enter search text: ");
+        List<AbstractTask> results = taskService.searchPartial(query);
+        view.printHeader("SEARCH RESULTS");
+        view.printTaskCollection(results, "No tasks match \"" + query + "\".");
+        view.printFooter();
+    }
+
+    private void findExactTask() {
+        String title = input.readLine("Enter exact title: ");
+        AbstractTask task = taskService.findByExactTitle(title);
+        view.printSingleTask(task, "Task not found.");
+    }
+
+    private void countByPriority() {
+        String raw = input.readLine("Priority to count (High/Medium/Low): ");
+        Priority priority = Priority.fromString(raw);
+        long count = taskService.countByPriority(priority);
+        view.printInfo("Tasks with priority " + priority.label() + ": " + count);
+    }
+
+    private void upcomingReminders() {
+        view.printHeader("UPCOMING REMINDERS (NEXT 3 DAYS)");
+        view.printTaskCollection(taskService.upcomingWithinWindow(), "No upcoming tasks.");
+        view.printFooter();
+    }
+
+    private void highPriorityReminders() {
+        view.printHeader("HIGH-PRIORITY REMINDERS");
+        view.printTaskCollection(taskService.highPriorityTasks(), "No high-priority tasks.");
+        view.printFooter();
+    }
+
+    private void overdueTasks() {
+        view.printHeader("OVERDUE TASKS");
+        view.printTaskCollection(taskService.overdueTasks(), "Nothing overdue. You're on track!");
+        view.printFooter();
+    }
+
+    private void removeFirstTask() {
+        AbstractTask removed = taskService.removeFirst();
+        if (removed == null) {
+            view.printError("List is empty, nothing to remove.");
+        } else {
+            view.printInfo("Removed first task: " + removed.getTitle());
+        }
+    }
+
+    private void removeLastTask() {
+        AbstractTask removed = taskService.removeLast();
+        if (removed == null) {
+            view.printError("List is empty, nothing to remove.");
+        } else {
+            view.printInfo("Removed last task: " + removed.getTitle());
+        }
+    }
+
+    private void countCompleted() {
+        view.printInfo("Completed tasks: " + taskService.countCompleted());
+    }
+
+    // ---- Urgent queue operations ----
+
+    private void escalateToUrgentQueue() {
+        String title = input.readLine("Enter task title to escalate: ");
+        AbstractTask task = taskService.findByExactTitle(title);
+        if (task == null) {
+            view.printError("Task not found in the main list.");
+            return;
+        }
+        urgentQueueService.escalate(task);
+        view.printInfo("Escalated \"" + task.getTitle() + "\" to the urgent queue.");
+    }
+
+    private void viewUrgentQueue() {
+        view.printHeader("URGENT QUEUE (FIFO)");
+        view.printQueue(urgentQueueService.getQueue(), "No urgent tasks.");
+        view.printFooter();
+    }
+
+    private void findUrgentTask() {
+        String title = input.readLine("Enter title to search in urgent queue: ");
+        AbstractTask task = urgentQueueService.findByTitle(title);
+        view.printSingleTask(task, "Not found in the urgent queue.");
+    }
+
+    private void viewHighPriorityUrgentTasks() {
+        view.printHeader("HIGH-PRIORITY URGENT TASKS");
+        view.printQueue(urgentQueueService.highPriorityOnly(), "No high-priority urgent tasks.");
+        view.printFooter();
+    }
+
+    private void countUrgentTasks() {
+        view.printInfo("Total urgent tasks: " + urgentQueueService.countTotal());
+        view.printInfo("High-priority urgent tasks: " + urgentQueueService.countHighPriority());
+    }
+
+    // ---- Persistence ----
+
+    private void saveNow() {
+        taskService.persist();
+        view.printInfo("Tasks saved to disk.");
+    }
+}
